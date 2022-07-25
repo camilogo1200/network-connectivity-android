@@ -4,10 +4,18 @@ import android.content.Context
 import android.net.*
 import android.net.NetworkCapabilities.*
 import android.os.Build
+import android.os.Build.VERSION_CODES.P
 import android.util.Log
 import androidx.annotation.RequiresApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flow
+import java.util.concurrent.Flow
 
 class NetworkManager(private val context: Context) {
+
+    companion object {
+        private const val DELAY_NETWORK_STATUS_REPORT = 2000L
+    }
 
     private val tag = NetworkManager::class.java.name
     private var onLostListener: (() -> Unit)? = null
@@ -43,6 +51,13 @@ class NetworkManager(private val context: Context) {
         onAvailableListener = null
     }
 
+    val networkStatus = flow {
+        while (true) {
+            emit(NetworkStatus(isNetworkAvailable(), connectionType))
+            delay(DELAY_NETWORK_STATUS_REPORT)
+        }
+    }
+
     fun isNetworkAvailable(): Boolean { //inject context
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
             isConnectivityAvailable(context)
@@ -74,12 +89,10 @@ class NetworkManager(private val context: Context) {
 
                 override fun onAvailable(network: Network) {
                     onAvailableListener?.invoke()
-                    Log.e(tag, "Connectivity Available")
                 }
 
                 override fun onLost(network: Network) {
                     onLostListener?.invoke()
-                    Log.e(tag, "Connectivity Lost")
                 }
 
                 override fun onCapabilitiesChanged(
@@ -143,3 +156,8 @@ class NetworkManager(private val context: Context) {
         }
     }
 }
+
+data class NetworkStatus(
+    val isConnected: Boolean,
+    val connectionType: ConnectionType
+)
